@@ -1,0 +1,18 @@
+# Deno
+.deno/
+deno.lock
+
+# Logs
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# User uploads
+public/assets/models/user/
+public/assets/temp/
+
+# Environment
+.env
+.env.local

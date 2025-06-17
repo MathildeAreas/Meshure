@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blender Web - Mesure de Distances 3D</title>
+    <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+    <!-- Barre supérieure -->
+    <header class="top-bar">
+        <div class="logo">
+            <h1>🎯 Blender Web</h1>
+        </div>
+        <nav class="main-menu">
+            <button id="btn-add-cube" class="btn">➕ Ajouter Cube</button>
+            <button id="btn-add-sphere" class="btn">🔵 Ajouter Sphère</button>
+            <button id="btn-measure" class="btn active">📏 Mesurer</button>
+            <button id="btn-reset" class="btn">🔄 Reset</button>
+        </nav>
+    </header>
+
+    <div class="main-container">
+        <!-- Panneau latéral -->
+        <aside class="side-panel">
+            <div class="panel-section">
+                <h3>🎛️ Contrôles</h3>
+                <div class="control-group">
+                    <label>Mode:</label>
+                    <select id="mode-select">
+                        <option value="view">👁️ Visualisation</option>
+                        <option value="measure">📏 Mesure</option>
+                        <option value="edit">✏️ Édition</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <h3>📊 Mesures</h3>
+                <div id="measurements-list" class="measurements">
+                    <p class="placeholder">Cliquez sur deux points pour mesurer la distance</p>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <h3>🏗️ Objets</h3>
+                <div id="objects-list" class="objects">
+                    <!-- Liste des objets sera générée dynamiquement -->
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <h3>ℹ️ Informations</h3>
+                <div class="info">
+                    <p><strong>Contrôles souris:</strong></p>
+                    <ul>
+                        <li>Rotation: Clic gauche + glisser</li>
+                        <li>Zoom: Molette</li>
+                        <li>Panoramique: Clic droit + glisser</li>
+                    </ul>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Zone de rendu 3D -->
+        <main class="viewport">
+            <div id="canvas-container" class="canvas-container">
+                <!-- Le canvas Three.js sera inséré ici -->
+            </div>
+            
+            <!-- Indicateurs de statut -->
+            <div class="status-bar">
+                <span id="fps-counter">FPS: 0</span>
+                <span id="object-count">Objets: 0</span>
+                <span id="cursor-position">Position: (0, 0, 0)</span>
+            </div>
+        </main>
+    </div>
+
+    <!-- Fenêtre modale pour les mesures -->
+    <div id="measurement-modal" class="modal hidden">
+        <div class="modal-content">
+            <h3>📏 Nouvelle Mesure</h3>
+            <p>Distance: <strong id="distance-value">0</strong> unités</p>
+            <p>Point A: <span id="point-a-coords">(0, 0, 0)</span></p>
+            <p>Point B: <span id="point-b-coords">(0, 0, 0)</span></p>
+            <div class="modal-actions">
+                <button id="save-measurement" class="btn btn-primary">💾 Sauvegarder</button>
+                <button id="cancel-measurement" class="btn">❌ Annuler</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.9/dat.gui.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stats.js/r17/Stats.min.js"></script>
+    
+    <!-- Modules de l'application -->
+    <script type="module" src="/js/main.js"></script>
+</body>
+</html>
