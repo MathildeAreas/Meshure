@@ -19,7 +19,7 @@ app.use(async (context, next) => {
   // Servir index.html pour la racine
   if (pathname === "/") {
     try {
-      const content = await Deno.readTextFile("./public/index.html");
+      const content = await Deno.readTextFile("./player-v3/public/index.html");
       context.response.type = "text/html";
       context.response.body = content;
       return;
@@ -32,7 +32,7 @@ app.use(async (context, next) => {
   // Servir les fichiers statiques du dossier public
   if (pathname.startsWith("/")) {
     try {
-      const filePath = `./public${pathname}`;
+      const filePath = `./player-v3/public${pathname}`;
       const content = await Deno.readFile(filePath);
       
       // Définir le type MIME approprié
@@ -102,7 +102,7 @@ app.use((context) => {
 // Démarrage du serveur
 const PORT = 8000;
 console.log(`🚀 Serveur démarré sur http://localhost:${PORT}`);
-console.log(`📁 Dossier public: ./public/`);
+console.log(`📁 Dossier public: ./player-v3/public/`);
 console.log(`🎯 API disponible sur /api/`);
 
 await app.listen({ port: PORT });
