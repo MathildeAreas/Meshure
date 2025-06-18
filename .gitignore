@@ -10,8 +10,8 @@ deno.lock
 Thumbs.db
 
 # User uploads
-public/assets/models/user/
-public/assets/temp/
+player-v3/public/assets/models/user/
+player-v3/public/assets/temp/
 
 # Environment
 .env
