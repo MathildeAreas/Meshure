@@ -1,0 +1,1707 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blender Clone - Éditeur 3D</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1e1e1e;
+            color: #ffffff;
+            overflow: hidden;
+        }
+
+        .app-container {
+            display: grid;
+            grid-template-areas: 
+                "toolbar toolbar toolbar"
+                "sidebar viewport properties"
+                "timeline timeline timeline";
+            grid-template-rows: 40px 1fr 150px;
+            grid-template-columns: 250px 1fr 250px;
+            height: 100vh;
+        }
+
+        .toolbar {
+            grid-area: toolbar;
+            background: #2d2d2d;
+            display: flex;
+            align-items: center;
+            padding: 0 15px;
+            border-bottom: 1px solid #404040;
+            gap: 15px;
+        }
+
+        .toolbar button {
+            background: #404040;
+            border: none;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.2s;
+        }
+
+        .toolbar button:hover {
+            background: #505050;
+        }
+
+        .toolbar button.active {
+            background: #0078d4;
+        }
+
+        .sidebar {
+            grid-area: sidebar;
+            background: #262626;
+            border-right: 1px solid #404040;
+            padding: 15px;
+            overflow-y: auto;
+        }
+
+        .viewport {
+            grid-area: viewport;
+            background: #1a1a1a;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .properties {
+            grid-area: properties;
+            background: #262626;
+            border-left: 1px solid #404040;
+            padding: 15px;
+            overflow-y: auto;
+        }
+
+        .timeline {
+            grid-area: timeline;
+            background: #333333;
+            border-top: 1px solid #404040;
+            padding: 10px;
+        }
+
+        .panel-title {
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #cccccc;
+            border-bottom: 1px solid #404040;
+            padding-bottom: 8px;
+        }
+
+        .object-list {
+            list-style: none;
+        }
+
+        .object-item {
+            padding: 8px 12px;
+            margin: 2px 0;
+            background: #333333;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.2s;
+            position: relative;
+        }
+
+        .object-item:hover {
+            background: #404040;
+        }
+
+        .object-item.selected {
+            background: #0078d4;
+        }
+
+        .delete-btn {
+            position: absolute;
+            right: 8px;
+            background: #ff4444;
+            border: none;
+            color: white;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .object-item:hover .delete-btn {
+            opacity: 1;
+        }
+
+        .delete-btn:hover {
+            background: #ff0000 !important;
+        }
+
+        .object-icon {
+            width: 16px;
+            height: 16px;
+            background: #666;
+            border-radius: 2px;
+        }
+
+        .property-group {
+            margin-bottom: 20px;
+        }
+
+        .property-group h3 {
+            font-size: 12px;
+            color: #aaa;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        .property-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            gap: 10px;
+        }
+
+        .property-label {
+            flex: 1;
+            font-size: 12px;
+            color: #ccc;
+        }
+
+        .property-input {
+            flex: 1;
+            background: #404040;
+            border: 1px solid #555;
+            color: white;
+            padding: 4px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+        }
+
+        .viewport-controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            gap: 5px;
+            z-index: 10;
+        }
+
+        .viewport-controls button {
+            background: rgba(0, 0, 0, 0.7);
+            border: none;
+            color: white;
+            padding: 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .viewport-controls button:hover {
+            background: rgba(0, 0, 0, 0.9);
+        }
+
+        .timeline-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .timeline-controls button {
+            background: #404040;
+            border: none;
+            color: white;
+            padding: 6px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+
+        .timeline-bar {
+            height: 60px;
+            background: #2a2a2a;
+            border-radius: 4px;
+            position: relative;
+            border: 1px solid #404040;
+        }
+
+        .status-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 20px;
+            background: #2d2d2d;
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            font-size: 11px;
+            color: #aaa;
+            border-top: 1px solid #404040;
+        }
+
+        #viewport-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .add-menu {
+            position: absolute;
+            background: #333;
+            border: 1px solid #555;
+            border-radius: 4px;
+            padding: 5px 0;
+            z-index: 100;
+            display: none;
+            min-width: 120px;
+        }
+
+        .add-menu button {
+            display: block;
+            width: 100%;
+            background: none;
+            border: none;
+            color: white;
+            padding: 8px 15px;
+            text-align: left;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .add-menu button:hover {
+            background: #404040;
+        }
+
+        .transform-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-size: 14px;
+            font-weight: bold;
+            z-index: 200;
+            display: none;
+        }
+
+        .transform-indicator.active {
+            display: block;
+        }
+
+        .axis-indicator {
+            color: #ffff00;
+        }
+
+        #file-input {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="toolbar">
+            <button id="file-btn">Fichier</button>
+            <button id="edit-btn">Édition</button>
+            <button id="add-btn">Ajouter</button>
+            <button id="import-btn">Importer</button>
+            <button id="mesh-btn">Mesh</button>
+            <button id="modifier-btn">Modifier</button>
+            <button id="material-btn">Matériau</button>
+            <button id="render-btn">Rendu</button>
+        </div>
+
+        <div class="sidebar">
+            <div class="panel-title">Scène</div>
+            <ul class="object-list" id="object-list">
+                <!-- Les objets seront ajoutés dynamiquement -->
+            </ul>
+        </div>
+
+        <div class="viewport">
+            <canvas id="viewport-canvas"></canvas>
+            <div class="viewport-controls">
+                <button id="wireframe-btn">Filaire</button>
+                <button id="solid-btn" class="active">Solide</button>
+                <button id="material-preview-btn">Matériau</button>
+                <button id="rendered-btn">Rendu</button>
+            </div>
+            <div class="transform-indicator" id="transform-indicator">
+                Mode: <span id="transform-mode">None</span>
+                <span class="axis-indicator" id="axis-indicator"></span>
+            </div>
+            <div class="status-bar">
+                Verts: <span id="vert-count">0</span> | Faces: <span id="face-count">0</span> | Objets: <span id="object-count">0</span> | 
+                <span style="color: #888;">Clic=Sélection | Shift+A=Ajouter | Shift+D=Dupliquer | Delete=Supprimer</span>
+            </div>
+        </div>
+
+        <div class="properties">
+            <div class="panel-title">Propriétés</div>
+            
+            <div class="property-group">
+                <h3>Transform</h3>
+                <div class="property-row">
+                    <span class="property-label">Position X</span>
+                    <input type="number" class="property-input" id="pos-x" value="0" step="0.1">
+                </div>
+                <div class="property-row">
+                    <span class="property-label">Position Y</span>
+                    <input type="number" class="property-input" id="pos-y" value="0" step="0.1">
+                </div>
+                <div class="property-row">
+                    <span class="property-label">Position Z</span>
+                    <input type="number" class="property-input" id="pos-z" value="0" step="0.1">
+                </div>
+            </div>
+
+            <div class="property-group">
+                <h3>Rotation</h3>
+                <div class="property-row">
+                    <span class="property-label">Rotation X</span>
+                    <input type="number" class="property-input" id="rot-x" value="0" step="0.1">
+                </div>
+                <div class="property-row">
+                    <span class="property-label">Rotation Y</span>
+                    <input type="number" class="property-input" id="rot-y" value="0" step="0.1">
+                </div>
+                <div class="property-row">
+                    <span class="property-label">Rotation Z</span>
+                    <input type="number" class="property-input" id="rot-z" value="0" step="0.1">
+                </div>
+            </div>
+
+            <div class="property-group">
+                <h3>Échelle</h3>
+                <div class="property-row">
+                    <span class="property-label">Échelle X</span>
+                    <input type="number" class="property-input" id="scale-x" value="1" step="0.1">
+                </div>
+                <div class="property-row">
+                    <span class="property-label">Échelle Y</span>
+                    <input type="number" class="property-input" id="scale-y" value="1" step="0.1">
+                </div>
+                <div class="property-row">
+                    <span class="property-label">Échelle Z</span>
+                    <input type="number" class="property-input" id="scale-z" value="1" step="0.1">
+                </div>
+            </div>
+        </div>
+
+        <div class="timeline">
+            <div class="panel-title">Timeline</div>
+            <div class="timeline-controls">
+                <button>⏮</button>
+                <button>⏯</button>
+                <button>⏹</button>
+                <button>⏭</button>
+                <span style="margin-left: 20px; font-size: 11px;">Frame: 1 / 250</span>
+            </div>
+            <div class="timeline-bar"></div>
+        </div>
+    </div>
+
+    <div class="add-menu" id="add-menu">
+        <button data-type="cube">Cube</button>
+        <button data-type="sphere">Sphère</button>
+        <button data-type="cylinder">Cylindre</button>
+        <button data-type="plane">Plan</button>
+        <button data-type="torus">Tore</button>
+        <button data-type="cone">Cône</button>
+        <button data-type="light">Lumière</button>
+        <button data-type="camera">Caméra</button>
+    </div>
+
+    <input type="file" id="file-input" accept=".obj,.json,.glb,.stl" multiple>
+
+    <script>
+        /**
+         * Classe principale de l'application Blender Clone
+         */
+        class BlenderCloneApp {
+            constructor() {
+                // Propriétés de la scène 3D
+                this.scene = null;
+                this.camera = null;
+                this.renderer = null;
+                this.raycaster = new THREE.Raycaster();
+                this.mouse = new THREE.Vector2();
+                
+                // Gestion des objets
+                this.objects = {};
+                this.selectedObject = null;
+                
+                // Contrôles caméra
+                this.cameraController = new CameraController();
+                
+                // Gestionnaire de transformations
+                this.transformManager = new TransformManager();
+                
+                // Gestionnaire d'objets
+                this.objectManager = new ObjectManager(this);
+                
+                // Gestionnaire d'interface
+                this.uiManager = new UIManager(this);
+                
+                // Gestionnaire d'import
+                this.importManager = new ImportManager(this);
+                
+                this.init();
+            }
+
+            init() {
+                console.log('🚀 Initialisation de Blender Clone App');
+                
+                const canvas = document.getElementById('viewport-canvas');
+                const viewport = document.querySelector('.viewport');
+                
+                // Initialiser la scène Three.js
+                this.scene = new THREE.Scene();
+                this.scene.background = new THREE.Color(0x2a2a2a);
+                
+                // Caméra
+                this.camera = new THREE.PerspectiveCamera(75, viewport.clientWidth / viewport.clientHeight, 0.1, 1000);
+                this.cameraController.setCamera(this.camera);
+                this.cameraController.updatePosition();
+                
+                // Renderer
+                this.renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+                this.renderer.setSize(viewport.clientWidth, viewport.clientHeight);
+                this.renderer.shadowMap.enabled = true;
+                this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                
+                // Éclairage
+                this.setupLighting();
+                
+                // Helpers
+                this.setupHelpers();
+                
+                // Objets par défaut
+                this.createDefaultObjects();
+                
+                // Gestionnaires
+                this.transformManager.setApp(this);
+                this.cameraController.setRenderer(this.renderer);
+                
+                // Event listeners
+                this.setupEventListeners();
+                
+                // Démarrer le rendu
+                this.animate();
+                
+                console.log('✅ Application initialisée avec succès');
+            }
+
+            setupLighting() {
+                // Lumière ambiante
+                const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
+                this.scene.add(ambientLight);
+                
+                // Lumière directionnelle
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                directionalLight.position.set(10, 10, 5);
+                directionalLight.castShadow = true;
+                this.scene.add(directionalLight);
+                this.objects['light'] = directionalLight;
+            }
+
+            setupHelpers() {
+                // Grille
+                const gridHelper = new THREE.GridHelper(20, 20, 0x444444, 0x444444);
+                this.scene.add(gridHelper);
+                
+                // Repère XYZ
+                const axisHelper = this.createAxisHelper();
+                this.scene.add(axisHelper);
+            }
+
+            createAxisHelper() {
+                const axisGroup = new THREE.Group();
+                axisGroup.name = 'axisHelper';
+                
+                const redMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+                const greenMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+                const blueMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff });
+                
+                const arrowGeometry = new THREE.ConeGeometry(0.1, 0.3, 8);
+                const lineGeometry = new THREE.CylinderGeometry(0.02, 0.02, 2, 8);
+                
+                // Axe X (Rouge)
+                const xLine = new THREE.Mesh(lineGeometry, redMaterial);
+                xLine.rotation.z = -Math.PI / 2;
+                xLine.position.x = 1;
+                
+                const xArrow = new THREE.Mesh(arrowGeometry, redMaterial);
+                xArrow.rotation.z = -Math.PI / 2;
+                xArrow.position.x = 2.15;
+                
+                // Axe Y (Vert)
+                const yLine = new THREE.Mesh(lineGeometry, greenMaterial);
+                yLine.position.y = 1;
+                
+                const yArrow = new THREE.Mesh(arrowGeometry, greenMaterial);
+                yArrow.position.y = 2.15;
+                
+                // Axe Z (Bleu)
+                const zLine = new THREE.Mesh(lineGeometry, blueMaterial);
+                zLine.rotation.x = Math.PI / 2;
+                zLine.position.z = 1;
+                
+                const zArrow = new THREE.Mesh(arrowGeometry, blueMaterial);
+                zArrow.rotation.x = Math.PI / 2;
+                zArrow.position.z = 2.15;
+                
+                axisGroup.add(xLine, xArrow, yLine, yArrow, zLine, zArrow);
+                
+                return axisGroup;
+            }
+
+            createDefaultObjects() {
+                // Cube par défaut
+                const cube = this.objectManager.createPrimitive('cube');
+                cube.material.color.setHex(0x00ff88);
+                this.addObject('cube', cube);
+                this.selectObject(cube);
+                
+                // Caméra par défaut
+                const cam = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+                cam.position.set(0, 0, 5);
+                this.addObject('camera', cam);
+            }
+
+            addObject(name, object) {
+                this.objects[name] = object;
+                this.scene.add(object);
+                this.uiManager.addObjectToList(name, object);
+                this.uiManager.updateStats();
+            }
+
+            removeObject(name) {
+                const object = this.objects[name];
+                if (!object) return false;
+                
+                if (this.selectedObject === object) {
+                    this.selectObject(null);
+                }
+                
+                this.scene.remove(object);
+                delete this.objects[name];
+                this.uiManager.removeObjectFromList(name);
+                this.uiManager.updateStats();
+                
+                return true;
+            }
+
+            selectObject(object) {
+                // Désélectionner l'objet précédent
+                if (this.selectedObject) {
+                    this.clearObjectSelection(this.selectedObject);
+                }
+                
+                this.selectedObject = object;
+                
+                // Sélectionner le nouvel objet
+                if (object && object.isMesh) {
+                    this.highlightObject(object);
+                }
+                
+                this.uiManager.updateObjectSelection(object);
+                this.uiManager.updatePropertiesPanel();
+            }
+
+            clearObjectSelection(object) {
+                if (object.userData && object.userData.originalMaterial) {
+                    object.material = object.userData.originalMaterial;
+                    delete object.userData.originalMaterial;
+                }
+                
+                if (object.userData && object.userData.selectionBox) {
+                    this.scene.remove(object.userData.selectionBox);
+                    delete object.userData.selectionBox;
+                }
+            }
+
+            highlightObject(object) {
+                // Sauvegarder le matériau original
+                if (!object.userData.originalMaterial) {
+                    object.userData.originalMaterial = object.material;
+                }
+                
+                // Créer un matériau de sélection
+                const selectionMaterial = object.userData.originalMaterial.clone();
+                selectionMaterial.emissive = new THREE.Color(0x666666);
+                selectionMaterial.emissiveIntensity = 0.4;
+                object.material = selectionMaterial;
+                
+                // Ajouter un contour de sélection
+                const box = new THREE.Box3().setFromObject(object);
+                const boxHelper = new THREE.Box3Helper(box, 0xffff00);
+                boxHelper.material.opacity = 0.3;
+                boxHelper.material.transparent = true;
+                this.scene.add(boxHelper);
+                object.userData.selectionBox = boxHelper;
+            }
+
+            getObjectByRaycast(event) {
+                const rect = this.renderer.domElement.getBoundingClientRect();
+                this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+                this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+                
+                this.raycaster.setFromCamera(this.mouse, this.camera);
+                
+                const selectableObjects = [];
+                this.scene.traverse(child => {
+                    if (child.isMesh && 
+                        child.name !== 'axisHelper' && 
+                        child.type !== 'GridHelper' &&
+                        child.type !== 'Box3Helper' &&
+                        (!child.parent || (child.parent.name !== 'axisHelper' && child.parent.type !== 'Box3Helper'))) {
+                        selectableObjects.push(child);
+                    }
+                });
+                
+                const intersects = this.raycaster.intersectObjects(selectableObjects);
+                return intersects.length > 0 ? intersects[0].object : null;
+            }
+
+            setupEventListeners() {
+                // Redimensionnement
+                window.addEventListener('resize', () => this.onWindowResize());
+                
+                // Contrôles de viewport
+                this.cameraController.setupControls(document.querySelector('.viewport'));
+                
+                // Gestionnaires spécialisés
+                this.transformManager.setupEventListeners();
+                this.uiManager.setupEventListeners();
+                this.importManager.setupEventListeners();
+            }
+
+            onWindowResize() {
+                const viewport = document.querySelector('.viewport');
+                this.camera.aspect = viewport.clientWidth / viewport.clientHeight;
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize(viewport.clientWidth, viewport.clientHeight);
+            }
+
+            animate() {
+                requestAnimationFrame(() => this.animate());
+                this.renderer.render(this.scene, this.camera);
+            }
+        }
+
+        /**
+         * Gestionnaire des contrôles de caméra
+         */
+        class CameraController {
+            constructor() {
+                this.camera = null;
+                this.renderer = null;
+                this.isMouseDown = false;
+                this.mouseX = 0;
+                this.mouseY = 0;
+                this.cameraTarget = new THREE.Vector3(0, 0, 0);
+                this.cameraDistance = 8.66;
+                this.cameraTheta = Math.PI / 4;
+                this.cameraPhi = Math.PI / 4;
+            }
+
+            setCamera(camera) {
+                this.camera = camera;
+            }
+
+            setRenderer(renderer) {
+                this.renderer = renderer;
+            }
+
+            updatePosition() {
+                if (!this.camera) return;
+                
+                const x = this.cameraDistance * Math.sin(this.cameraPhi) * Math.cos(this.cameraTheta);
+                const y = this.cameraDistance * Math.cos(this.cameraPhi);
+                const z = this.cameraDistance * Math.sin(this.cameraPhi) * Math.sin(this.cameraTheta);
+                
+                this.camera.position.set(x, y, z);
+                this.camera.position.add(this.cameraTarget);
+                this.camera.lookAt(this.cameraTarget);
+            }
+
+            setupControls(viewport) {
+                viewport.addEventListener('mousedown', (e) => this.onMouseDown(e));
+                viewport.addEventListener('mousemove', (e) => this.onMouseMove(e));
+                viewport.addEventListener('mouseup', () => this.onMouseUp());
+                viewport.addEventListener('wheel', (e) => this.onWheel(e));
+            }
+
+            onMouseDown(event) {
+                // Géré par l'app principale pour la sélection
+                this.isMouseDown = true;
+                this.mouseX = event.clientX;
+                this.mouseY = event.clientY;
+            }
+
+            onMouseMove(event) {
+                if (!this.isMouseDown) return;
+                
+                const deltaX = event.clientX - this.mouseX;
+                const deltaY = event.clientY - this.mouseY;
+                
+                if (event.shiftKey) {
+                    // Pan
+                    const panSpeed = 0.01;
+                    const right = new THREE.Vector3();
+                    const up = new THREE.Vector3();
+                    
+                    this.camera.getWorldDirection(new THREE.Vector3());
+                    right.setFromMatrixColumn(this.camera.matrix, 0);
+                    up.setFromMatrixColumn(this.camera.matrix, 1);
+                    
+                    right.multiplyScalar(deltaX * panSpeed);
+                    up.multiplyScalar(-deltaY * panSpeed);
+                    
+                    this.cameraTarget.add(right);
+                    this.cameraTarget.add(up);
+                } else {
+                    // Rotation
+                    const rotateSpeed = 0.005;
+                    this.cameraTheta += deltaX * rotateSpeed;
+                    this.cameraPhi -= deltaY * rotateSpeed;
+                    this.cameraPhi = Math.max(0.1, Math.min(Math.PI - 0.1, this.cameraPhi));
+                }
+                
+                this.updatePosition();
+                this.mouseX = event.clientX;
+                this.mouseY = event.clientY;
+            }
+
+            onMouseUp() {
+                this.isMouseDown = false;
+            }
+
+            onWheel(event) {
+                event.preventDefault();
+                
+                const zoomFactor = 0.95;
+                
+                if (event.deltaY > 0) {
+                    this.cameraDistance = this.cameraDistance / zoomFactor;
+                } else {
+                    this.cameraDistance = this.cameraDistance * zoomFactor;
+                    if (this.cameraDistance < 0.1) {
+                        this.cameraDistance = 0.1;
+                    }
+                }
+                
+                console.log('🔍 Zoom - Distance:', this.cameraDistance.toFixed(1));
+                this.updatePosition();
+            }
+        }
+
+        /**
+         * Gestionnaire des transformations
+         */
+        class TransformManager {
+            constructor() {
+                this.app = null;
+                this.mode = 'none';
+                this.axis = 'none';
+                this.isTransforming = false;
+                this.startPosition = new THREE.Vector3();
+                this.startRotation = new THREE.Euler();
+                this.startScale = new THREE.Vector3();
+                this.startMouse = { x: 0, y: 0 };
+            }
+
+            setApp(app) {
+                this.app = app;
+            }
+
+            setupEventListeners() {
+                document.addEventListener('keydown', (e) => this.onKeyDown(e));
+                document.addEventListener('keyup', (e) => this.onKeyUp(e));
+                document.addEventListener('mousemove', (e) => this.onMouseMove(e));
+                document.addEventListener('mouseup', (e) => this.onMouseUp(e));
+            }
+
+            onKeyDown(event) {
+                const key = event.key.toLowerCase();
+                
+                if (key === 'delete' || key === 'backspace') {
+                    this.app.uiManager.deleteSelectedObject();
+                    return;
+                }
+                
+                if (event.shiftKey && key === 'd') {
+                    this.app.objectManager.duplicateSelected();
+                    return;
+                }
+                
+                if (event.shiftKey && key === 'a') {
+                    this.app.uiManager.showAddMenu();
+                    return;
+                }
+                
+                if (!this.app.selectedObject) return;
+                
+                if (key === 'escape') {
+                    this.cancelTransform();
+                    return;
+                }
+                
+                if (key === 'enter' && this.isTransforming) {
+                    this.confirmTransform();
+                    return;
+                }
+                
+                if (!this.isTransforming) {
+                    switch(key) {
+                        case 'g': this.startTransform('grab'); break;
+                        case 'r': this.startTransform('rotate'); break;
+                        case 's': this.startTransform('scale'); break;
+                    }
+                }
+                
+                if (this.isTransforming) {
+                    switch(key) {
+                        case 'x': this.setAxis('x'); break;
+                        case 'y': this.setAxis('y'); break;
+                        case 'z': this.setAxis('z'); break;
+                    }
+                }
+            }
+
+            onKeyUp(event) {
+                // Gérer les relâchements de touches si nécessaire
+            }
+
+            onMouseMove(event) {
+                if (!this.isTransforming || !this.app.selectedObject) return;
+                
+                this.handleTransformMove(event);
+            }
+
+            onMouseUp(event) {
+                if (this.isTransforming) {
+                    this.confirmTransform();
+                }
+            }
+
+            startTransform(mode) {
+                if (!this.app.selectedObject) return;
+                
+                console.log('🔧 Début transformation:', mode);
+                
+                this.mode = mode;
+                this.axis = 'none';
+                this.isTransforming = true;
+                
+                // Sauvegarder les valeurs initiales
+                this.startPosition.copy(this.app.selectedObject.position);
+                this.startRotation.copy(this.app.selectedObject.rotation);
+                this.startScale.copy(this.app.selectedObject.scale);
+                
+                // Position initiale de la souris
+                this.startMouse = { 
+                    x: this.app.cameraController.mouseX, 
+                    y: this.app.cameraController.mouseY 
+                };
+                
+                console.log('Start mouse:', this.startMouse);
+                console.log('Start position:', this.startPosition);
+                
+                this.updateIndicator();
+            }
+
+            setAxis(axis) {
+                if (!this.isTransforming) return;
+                this.axis = axis;
+                console.log('🎯 Axe contraint:', axis);
+                this.updateIndicator();
+            }
+
+            handleTransformMove(event) {
+                if (!this.isTransforming || !this.app.selectedObject) return;
+                
+                // Calculer les deltas de souris
+                const currentMouseX = event.clientX;
+                const currentMouseY = event.clientY;
+                
+                const deltaX = currentMouseX - this.startMouse.x;
+                const deltaY = currentMouseY - this.startMouse.y;
+                
+                console.log('Delta X:', deltaX, 'Delta Y:', deltaY);
+                
+                const sensitivity = 0.01;
+                
+                switch(this.mode) {
+                    case 'grab':
+                        this.handleGrabTransform(deltaX, deltaY, sensitivity);
+                        break;
+                    case 'rotate':
+                        this.handleRotateTransform(deltaX, deltaY, sensitivity);
+                        break;
+                    case 'scale':
+                        this.handleScaleTransform(deltaX, deltaY, sensitivity);
+                        break;
+                }
+                
+                this.app.uiManager.updatePropertiesPanel();
+            }
+
+            handleGrabTransform(deltaX, deltaY, sensitivity) {
+                // Restaurer la position initiale
+                this.app.selectedObject.position.copy(this.startPosition);
+                
+                const movement = deltaX * sensitivity;
+                
+                switch(this.axis) {
+                    case 'x':
+                        this.app.selectedObject.position.x += movement;
+                        console.log('Déplacement X:', movement);
+                        break;
+                    case 'y':
+                        this.app.selectedObject.position.y += movement;
+                        console.log('Déplacement Y:', movement);
+                        break;
+                    case 'z':
+                        this.app.selectedObject.position.z += movement;
+                        console.log('Déplacement Z:', movement);
+                        break;
+                    default:
+                        // Mouvement libre dans le plan de la caméra
+                        this.app.selectedObject.position.x += deltaX * sensitivity;
+                        this.app.selectedObject.position.y -= deltaY * sensitivity;
+                        console.log('Déplacement libre X:', deltaX * sensitivity, 'Y:', -deltaY * sensitivity);
+                        break;
+                }
+            }
+
+            handleRotateTransform(deltaX, deltaY, sensitivity) {
+                // Restaurer la rotation initiale
+                this.app.selectedObject.rotation.copy(this.startRotation);
+                
+                const rotation = deltaX * sensitivity;
+                
+                switch(this.axis) {
+                    case 'x':
+                        this.app.selectedObject.rotation.x += rotation;
+                        console.log('Rotation X:', rotation);
+                        break;
+                    case 'y':
+                        this.app.selectedObject.rotation.y += rotation;
+                        console.log('Rotation Y:', rotation);
+                        break;
+                    case 'z':
+                        this.app.selectedObject.rotation.z += rotation;
+                        console.log('Rotation Z:', rotation);
+                        break;
+                    default:
+                        // Rotation libre
+                        this.app.selectedObject.rotation.y += deltaX * sensitivity;
+                        this.app.selectedObject.rotation.x += deltaY * sensitivity;
+                        console.log('Rotation libre Y:', deltaX * sensitivity, 'X:', deltaY * sensitivity);
+                        break;
+                }
+            }
+
+            handleScaleTransform(deltaX, deltaY, sensitivity) {
+                // Restaurer l'échelle initiale
+                this.app.selectedObject.scale.copy(this.startScale);
+                
+                const scaleMultiplier = 1 + (deltaX * sensitivity);
+                
+                switch(this.axis) {
+                    case 'x':
+                        this.app.selectedObject.scale.x = this.startScale.x * scaleMultiplier;
+                        console.log('Échelle X:', scaleMultiplier);
+                        break;
+                    case 'y':
+                        this.app.selectedObject.scale.y = this.startScale.y * scaleMultiplier;
+                        console.log('Échelle Y:', scaleMultiplier);
+                        break;
+                    case 'z':
+                        this.app.selectedObject.scale.z = this.startScale.z * scaleMultiplier;
+                        console.log('Échelle Z:', scaleMultiplier);
+                        break;
+                    default:
+                        // Échelle uniforme
+                        this.app.selectedObject.scale.set(
+                            this.startScale.x * scaleMultiplier,
+                            this.startScale.y * scaleMultiplier,
+                            this.startScale.z * scaleMultiplier
+                        );
+                        console.log('Échelle uniforme:', scaleMultiplier);
+                        break;
+                }
+            }
+
+            confirmTransform() {
+                console.log('✅ Transformation confirmée');
+                this.isTransforming = false;
+                this.mode = 'none';
+                this.axis = 'none';
+                this.updateIndicator();
+            }
+
+            cancelTransform() {
+                if (!this.isTransforming || !this.app.selectedObject) return;
+                
+                console.log('❌ Transformation annulée');
+                
+                // Restaurer les valeurs initiales
+                this.app.selectedObject.position.copy(this.startPosition);
+                this.app.selectedObject.rotation.copy(this.startRotation);
+                this.app.selectedObject.scale.copy(this.startScale);
+                
+                this.isTransforming = false;
+                this.mode = 'none';
+                this.axis = 'none';
+                
+                this.updateIndicator();
+                this.app.uiManager.updatePropertiesPanel();
+            }
+
+            updateIndicator() {
+                const indicator = document.getElementById('transform-indicator');
+                const modeSpan = document.getElementById('transform-mode');
+                const axisSpan = document.getElementById('axis-indicator');
+                
+                if (this.isTransforming) {
+                    indicator.classList.add('active');
+                    
+                    let modeText = '';
+                    switch(this.mode) {
+                        case 'grab': modeText = 'Déplacement'; break;
+                        case 'rotate': modeText = 'Rotation'; break;
+                        case 'scale': modeText = 'Échelle'; break;
+                    }
+                    
+                    modeSpan.textContent = modeText;
+                    axisSpan.textContent = this.axis !== 'none' ? ` - Axe ${this.axis.toUpperCase()}` : '';
+                } else {
+                    indicator.classList.remove('active');
+                }
+            }
+        }
+
+        /**
+         * Gestionnaire des objets 3D
+         */
+        class ObjectManager {
+            constructor(app) {
+                this.app = app;
+            }
+
+            createPrimitive(type) {
+                let geometry, material, object;
+                
+                switch(type) {
+                    case 'cube':
+                        geometry = new THREE.BoxGeometry();
+                        material = new THREE.MeshLambertMaterial({ color: Math.random() * 0xffffff });
+                        object = new THREE.Mesh(geometry, material);
+                        break;
+                    case 'sphere':
+                        geometry = new THREE.SphereGeometry(1, 32, 32);
+                        material = new THREE.MeshLambertMaterial({ color: Math.random() * 0xffffff });
+                        object = new THREE.Mesh(geometry, material);
+                        break;
+                    case 'cylinder':
+                        geometry = new THREE.CylinderGeometry(1, 1, 2, 32);
+                        material = new THREE.MeshLambertMaterial({ color: Math.random() * 0xffffff });
+                        object = new THREE.Mesh(geometry, material);
+                        break;
+                    case 'plane':
+                        geometry = new THREE.PlaneGeometry(2, 2);
+                        material = new THREE.MeshLambertMaterial({ color: Math.random() * 0xffffff });
+                        object = new THREE.Mesh(geometry, material);
+                        break;
+                    case 'torus':
+                        geometry = new THREE.TorusGeometry(1, 0.4, 16, 100);
+                        material = new THREE.MeshLambertMaterial({ color: Math.random() * 0xffffff });
+                        object = new THREE.Mesh(geometry, material);
+                        break;
+                    case 'cone':
+                        geometry = new THREE.ConeGeometry(1, 2, 32);
+                        material = new THREE.MeshLambertMaterial({ color: Math.random() * 0xffffff });
+                        object = new THREE.Mesh(geometry, material);
+                        break;
+                    case 'light':
+                        object = new THREE.DirectionalLight(0xffffff, 0.5);
+                        object.position.set(Math.random() * 10 - 5, 5, Math.random() * 10 - 5);
+                        break;
+                    case 'camera':
+                        object = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+                        object.position.set(Math.random() * 10 - 5, 5, Math.random() * 10 - 5);
+                        break;
+                }
+                
+                if (object && object.isMesh) {
+                    object.castShadow = true;
+                    object.receiveShadow = true;
+                    
+                    // Positionner près de l'objet sélectionné
+                    if (this.app.selectedObject && this.app.selectedObject.isMesh) {
+                        object.position.copy(this.app.selectedObject.position);
+                        object.position.x += 2;
+                    } else {
+                        object.position.set(
+                            Math.random() * 4 - 2, 
+                            0, 
+                            Math.random() * 4 - 2
+                        );
+                    }
+                }
+                
+                return object;
+            }
+
+            duplicateSelected() {
+                if (!this.app.selectedObject || !this.app.selectedObject.isMesh) return;
+                
+                const geometry = this.app.selectedObject.geometry.clone();
+                const material = this.app.selectedObject.userData.originalMaterial ? 
+                    this.app.selectedObject.userData.originalMaterial.clone() : 
+                    this.app.selectedObject.material.clone();
+                
+                const newObject = new THREE.Mesh(geometry, material);
+                newObject.castShadow = true;
+                newObject.receiveShadow = true;
+                
+                newObject.position.copy(this.app.selectedObject.position);
+                newObject.position.x += 1;
+                newObject.rotation.copy(this.app.selectedObject.rotation);
+                newObject.scale.copy(this.app.selectedObject.scale);
+                
+                const objectName = 'copy_' + Date.now();
+                this.app.addObject(objectName, newObject);
+                this.app.selectObject(newObject);
+                
+                console.log('Objet dupliqué:', objectName);
+            }
+        }
+
+        /**
+         * Gestionnaire de l'interface utilisateur
+         */
+        class UIManager {
+            constructor(app) {
+                this.app = app;
+            }
+
+            setupEventListeners() {
+                // Contrôles de rendu
+                document.getElementById('wireframe-btn').addEventListener('click', () => this.setRenderMode('wireframe'));
+                document.getElementById('solid-btn').addEventListener('click', () => this.setRenderMode('solid'));
+                document.getElementById('material-preview-btn').addEventListener('click', () => this.setRenderMode('material'));
+                document.getElementById('rendered-btn').addEventListener('click', () => this.setRenderMode('rendered'));
+                
+                // Menu ajouter
+                document.getElementById('add-btn').addEventListener('click', (e) => this.showAddMenu(e));
+                
+                // Boutons du menu d'ajout
+                document.querySelectorAll('.add-menu button').forEach(button => {
+                    button.addEventListener('click', () => {
+                        const type = button.dataset.type;
+                        this.addPrimitive(type);
+                        this.hideAddMenu();
+                    });
+                });
+                
+                // Propriétés
+                ['pos-x', 'pos-y', 'pos-z', 'rot-x', 'rot-y', 'rot-z', 'scale-x', 'scale-y', 'scale-z'].forEach(id => {
+                    document.getElementById(id).addEventListener('input', () => this.updateObjectTransform());
+                });
+                
+                // Sélection par clic
+                document.querySelector('.viewport').addEventListener('mousedown', (e) => this.handleViewportClick(e));
+                
+                // Fermer menus en cliquant ailleurs
+                document.addEventListener('click', (e) => {
+                    if (!e.target.closest('#add-btn') && !e.target.closest('#add-menu')) {
+                        this.hideAddMenu();
+                    }
+                });
+            }
+
+            handleViewportClick(event) {
+                const startX = event.clientX;
+                const startY = event.clientY;
+                
+                const onMouseUp = (upEvent) => {
+                    const deltaX = Math.abs(upEvent.clientX - startX);
+                    const deltaY = Math.abs(upEvent.clientY - startY);
+                    
+                    if (deltaX < 3 && deltaY < 3) {
+                        const hitObject = this.app.getObjectByRaycast(upEvent);
+                        this.app.selectObject(hitObject);
+                    }
+                    
+                    document.removeEventListener('mouseup', onMouseUp);
+                };
+                
+                document.addEventListener('mouseup', onMouseUp);
+            }
+
+            addObjectToList(name, object) {
+                const objectList = document.getElementById('object-list');
+                const listItem = document.createElement('li');
+                listItem.className = 'object-item';
+                listItem.dataset.object = name;
+                
+                const displayName = this.getDisplayName(name, object);
+                
+                listItem.innerHTML = `
+                    <div class="object-icon"></div>
+                    <span>${displayName}</span>
+                    <button class="delete-btn" title="Supprimer">×</button>
+                `;
+                
+                // Event listeners
+                listItem.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('delete-btn')) {
+                        e.stopPropagation();
+                        this.deleteObject(name);
+                        return;
+                    }
+                    this.app.selectObject(this.app.objects[name]);
+                });
+                
+                const deleteBtn = listItem.querySelector('.delete-btn');
+                deleteBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.deleteObject(name);
+                });
+                
+                objectList.appendChild(listItem);
+            }
+
+            removeObjectFromList(name) {
+                const listItem = document.querySelector(`[data-object="${name}"]`);
+                if (listItem) {
+                    listItem.remove();
+                }
+            }
+
+            getDisplayName(name, object) {
+                if (name.includes('_')) {
+                    const parts = name.split('_');
+                    return parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+                }
+                return name.charAt(0).toUpperCase() + name.slice(1);
+            }
+
+            updateObjectSelection(object) {
+                document.querySelectorAll('.object-item').forEach(item => {
+                    item.classList.remove('selected');
+                    const objectName = item.dataset.object;
+                    if (this.app.objects[objectName] === object) {
+                        item.classList.add('selected');
+                    }
+                });
+            }
+
+            updatePropertiesPanel() {
+                const obj = this.app.selectedObject;
+                
+                if (!obj || !obj.position) {
+                    this.resetPropertiesPanel();
+                    return;
+                }
+                
+                document.getElementById('pos-x').value = obj.position.x.toFixed(2);
+                document.getElementById('pos-y').value = obj.position.y.toFixed(2);
+                document.getElementById('pos-z').value = obj.position.z.toFixed(2);
+                
+                document.getElementById('rot-x').value = obj.rotation.x.toFixed(2);
+                document.getElementById('rot-y').value = obj.rotation.y.toFixed(2);
+                document.getElementById('rot-z').value = obj.rotation.z.toFixed(2);
+                
+                document.getElementById('scale-x').value = obj.scale.x.toFixed(2);
+                document.getElementById('scale-y').value = obj.scale.y.toFixed(2);
+                document.getElementById('scale-z').value = obj.scale.z.toFixed(2);
+            }
+
+            resetPropertiesPanel() {
+                ['pos-x', 'pos-y', 'pos-z'].forEach(id => document.getElementById(id).value = '0');
+                ['rot-x', 'rot-y', 'rot-z'].forEach(id => document.getElementById(id).value = '0');
+                ['scale-x', 'scale-y', 'scale-z'].forEach(id => document.getElementById(id).value = '1');
+            }
+
+            updateObjectTransform() {
+                const obj = this.app.selectedObject;
+                if (!obj || !obj.position) return;
+                
+                obj.position.set(
+                    parseFloat(document.getElementById('pos-x').value),
+                    parseFloat(document.getElementById('pos-y').value),
+                    parseFloat(document.getElementById('pos-z').value)
+                );
+                
+                obj.rotation.set(
+                    parseFloat(document.getElementById('rot-x').value),
+                    parseFloat(document.getElementById('rot-y').value),
+                    parseFloat(document.getElementById('rot-z').value)
+                );
+                
+                obj.scale.set(
+                    parseFloat(document.getElementById('scale-x').value),
+                    parseFloat(document.getElementById('scale-y').value),
+                    parseFloat(document.getElementById('scale-z').value)
+                );
+            }
+
+            setRenderMode(mode) {
+                document.querySelectorAll('.viewport-controls button').forEach(btn => btn.classList.remove('active'));
+                
+                switch(mode) {
+                    case 'wireframe':
+                        document.getElementById('wireframe-btn').classList.add('active');
+                        this.app.scene.traverse(child => {
+                            if (child.material) child.material.wireframe = true;
+                        });
+                        break;
+                    case 'solid':
+                        document.getElementById('solid-btn').classList.add('active');
+                        this.app.scene.traverse(child => {
+                            if (child.material) child.material.wireframe = false;
+                        });
+                        break;
+                    case 'material':
+                        document.getElementById('material-preview-btn').classList.add('active');
+                        break;
+                    case 'rendered':
+                        document.getElementById('rendered-btn').classList.add('active');
+                        break;
+                }
+            }
+
+            showAddMenu(event) {
+                const menu = document.getElementById('add-menu');
+                if (event) {
+                    menu.style.left = event.pageX + 'px';
+                    menu.style.top = event.pageY + 'px';
+                } else {
+                    const viewport = document.querySelector('.viewport');
+                    const rect = viewport.getBoundingClientRect();
+                    menu.style.left = (rect.left + rect.width / 2 - 60) + 'px';
+                    menu.style.top = (rect.top + rect.height / 2 - 100) + 'px';
+                }
+                menu.style.display = 'block';
+            }
+
+            hideAddMenu() {
+                document.getElementById('add-menu').style.display = 'none';
+            }
+
+            addPrimitive(type) {
+                const object = this.app.objectManager.createPrimitive(type);
+                if (object) {
+                    const objectName = type + '_' + Date.now();
+                    this.app.addObject(objectName, object);
+                    this.app.selectObject(object);
+                    console.log('Objet ajouté:', type, objectName);
+                }
+            }
+
+            deleteObject(name) {
+                console.log('=== SUPPRESSION ===');
+                console.log('Objet à supprimer:', name);
+                
+                if (this.app.removeObject(name)) {
+                    console.log('✅ Suppression réussie');
+                } else {
+                    console.log('❌ Échec de la suppression');
+                }
+            }
+
+            deleteSelectedObject() {
+                if (!this.app.selectedObject) return;
+                
+                // Trouver le nom de l'objet sélectionné
+                for (const [name, obj] of Object.entries(this.app.objects)) {
+                    if (obj === this.app.selectedObject) {
+                        this.deleteObject(name);
+                        return;
+                    }
+                }
+            }
+
+            updateStats() {
+                let vertCount = 0, faceCount = 0;
+                
+                this.app.scene.traverse(child => {
+                    if (child.geometry) {
+                        if (child.geometry.attributes && child.geometry.attributes.position) {
+                            vertCount += child.geometry.attributes.position.count;
+                        }
+                        if (child.geometry.index) {
+                            faceCount += child.geometry.index.count / 3;
+                        }
+                    }
+                });
+                
+                document.getElementById('vert-count').textContent = vertCount;
+                document.getElementById('face-count').textContent = Math.floor(faceCount);
+                document.getElementById('object-count').textContent = Object.keys(this.app.objects).length;
+            }
+        }
+
+        /**
+         * Gestionnaire d'import de fichiers
+         */
+        class ImportManager {
+            constructor(app) {
+                this.app = app;
+            }
+
+            setupEventListeners() {
+                document.getElementById('import-btn').addEventListener('click', () => {
+                    document.getElementById('file-input').click();
+                });
+                
+                document.getElementById('file-input').addEventListener('change', (e) => this.handleFileImport(e));
+            }
+
+            handleFileImport(event) {
+                const files = event.target.files;
+                
+                for (let file of files) {
+                    const fileName = file.name.toLowerCase();
+                    const reader = new FileReader();
+                    
+                    if (fileName.endsWith('.glb') || fileName.endsWith('.stl')) {
+                        reader.onload = (e) => {
+                            const arrayBuffer = e.target.result;
+                            if (fileName.endsWith('.glb')) {
+                                this.loadGLBFile(arrayBuffer, file.name);
+                            } else if (fileName.endsWith('.stl')) {
+                                this.loadSTLFile(arrayBuffer, file.name);
+                            }
+                        };
+                        reader.readAsArrayBuffer(file);
+                    } else {
+                        reader.onload = (e) => {
+                            const content = e.target.result;
+                            if (fileName.endsWith('.obj')) {
+                                this.loadOBJFile(content, file.name);
+                            } else if (fileName.endsWith('.json')) {
+                                this.loadJSONFile(content, file.name);
+                            } else {
+                                alert('Format non supporté. Utilisez OBJ, JSON, GLB ou STL.');
+                            }
+                        };
+                        reader.readAsText(file);
+                    }
+                }
+                
+                event.target.value = '';
+            }
+
+            centerObject(object) {
+                try {
+                    const box = new THREE.Box3().setFromObject(object);
+                    const center = box.getCenter(new THREE.Vector3());
+                    object.position.sub(center);
+                } catch (error) {
+                    console.warn('Impossible de centrer l\'objet:', error);
+                }
+            }
+
+            loadOBJFile(content, fileName) {
+                try {
+                    const lines = content.split('\n');
+                    const vertices = [];
+                    const faces = [];
+                    
+                    for (let line of lines) {
+                        line = line.trim();
+                        if (line.startsWith('v ')) {
+                            const coords = line.split(' ').slice(1).map(parseFloat);
+                            vertices.push(coords[0], coords[1], coords[2]);
+                        } else if (line.startsWith('f ')) {
+                            const indices = line.split(' ').slice(1);
+                            for (let i = 1; i < indices.length - 1; i++) {
+                                faces.push(
+                                    parseInt(indices[0].split('/')[0]) - 1,
+                                    parseInt(indices[i].split('/')[0]) - 1,
+                                    parseInt(indices[i + 1].split('/')[0]) - 1
+                                );
+                            }
+                        }
+                    }
+                    
+                    if (vertices.length === 0) {
+                        alert('Aucun vertex trouvé dans le fichier OBJ');
+                        return;
+                    }
+                    
+                    const geometry = new THREE.BufferGeometry();
+                    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+                    
+                    if (faces.length > 0) {
+                        geometry.setIndex(faces);
+                    }
+                    
+                    geometry.computeVertexNormals();
+                    
+                    const material = new THREE.MeshLambertMaterial({ 
+                        color: Math.random() * 0xffffff,
+                        side: THREE.DoubleSide
+                    });
+                    const mesh = new THREE.Mesh(geometry, material);
+                    mesh.castShadow = true;
+                    mesh.receiveShadow = true;
+                    
+                    this.centerObject(mesh);
+                    
+                    const objectName = 'obj_' + Date.now();
+                    this.app.addObject(objectName, mesh);
+                    this.app.selectObject(mesh);
+                    
+                    console.log('Fichier OBJ importé:', fileName);
+                    
+                } catch (error) {
+                    console.error('Erreur lors de l\'import OBJ:', error);
+                    alert('Erreur lors de l\'import du fichier OBJ.');
+                }
+            }
+
+            loadSTLFile(arrayBuffer, fileName) {
+                try {
+                    const view = new DataView(arrayBuffer);
+                    let offset = 80;
+                    
+                    const triangleCount = view.getUint32(offset, true);
+                    offset += 4;
+                    
+                    const vertices = [];
+                    const normals = [];
+                    
+                    for (let i = 0; i < triangleCount; i++) {
+                        const nx = view.getFloat32(offset, true); offset += 4;
+                        const ny = view.getFloat32(offset, true); offset += 4;
+                        const nz = view.getFloat32(offset, true); offset += 4;
+                        
+                        for (let j = 0; j < 3; j++) {
+                            const x = view.getFloat32(offset, true); offset += 4;
+                            const y = view.getFloat32(offset, true); offset += 4;
+                            const z = view.getFloat32(offset, true); offset += 4;
+                            
+                            vertices.push(x, y, z);
+                            normals.push(nx, ny, nz);
+                        }
+                        
+                        offset += 2;
+                    }
+                    
+                    const geometry = new THREE.BufferGeometry();
+                    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+                    geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+                    
+                    const material = new THREE.MeshLambertMaterial({ 
+                        color: Math.random() * 0xffffff,
+                        side: THREE.DoubleSide
+                    });
+                    const mesh = new THREE.Mesh(geometry, material);
+                    mesh.castShadow = true;
+                    mesh.receiveShadow = true;
+                    
+                    this.centerObject(mesh);
+                    
+                    const objectName = 'stl_' + Date.now();
+                    this.app.addObject(objectName, mesh);
+                    this.app.selectObject(mesh);
+                    
+                    console.log('Fichier STL importé:', fileName, `${triangleCount} triangles`);
+                    
+                } catch (error) {
+                    console.error('Erreur lors de l\'import STL:', error);
+                    alert('Erreur lors de l\'import du fichier STL');
+                }
+            }
+
+            loadJSONFile(content, fileName) {
+                try {
+                    const json = JSON.parse(content);
+                    
+                    if (json.geometries || json.geometry) {
+                        const loader = new THREE.ObjectLoader();
+                        const object = loader.parse(json);
+                        
+                        this.centerObject(object);
+                        
+                        const objectName = 'json_' + Date.now();
+                        this.app.addObject(objectName, object);
+                        this.app.selectObject(object);
+                        
+                        console.log('Fichier JSON importé:', fileName);
+                    } else {
+                        alert('Format JSON non reconnu');
+                    }
+                    
+                } catch (error) {
+                    console.error('Erreur lors de l\'import JSON:', error);
+                    alert('Erreur lors de l\'import du fichier JSON');
+                }
+            }
+
+            loadGLBFile(arrayBuffer, fileName) {
+                try {
+                    const view = new DataView(arrayBuffer);
+                    const magic = view.getUint32(0, true);
+                    if (magic !== 0x46546C67) {
+                        throw new Error('Fichier GLB invalide');
+                    }
+                    
+                    const geometry = new THREE.BoxGeometry(2, 2, 2);
+                    const material = new THREE.MeshLambertMaterial({ 
+                        color: 0x00ff00,
+                        wireframe: false
+                    });
+                    const mesh = new THREE.Mesh(geometry, material);
+                    mesh.castShadow = true;
+                    mesh.receiveShadow = true;
+                    
+                    this.centerObject(mesh);
+                    
+                    const objectName = 'glb_' + Date.now();
+                    this.app.addObject(objectName, mesh);
+                    
+                    console.log('Fichier GLB importé (placeholder):', fileName);
+                    alert('GLB importé comme cube placeholder.');
+                    
+                } catch (error) {
+                    console.error('Erreur lors de l\'import GLB:', error);
+                    alert('Erreur lors de l\'import du fichier GLB');
+                }
+            }
+        }
+
+        // Initialisation de l'application
+        let app;
+        window.addEventListener('DOMContentLoaded', () => {
+            app = new BlenderCloneApp();
+            console.log('🎉 Blender Clone App démarrée');
+        });
+    </script>
+</body>
+</html>
